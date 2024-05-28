@@ -1,0 +1,147 @@
+<h1>Crear Carrito</h1>
+<form action="api/carts" method="POST" onsubmit="crearCarrito(event)">
+    <button type="submit">Crear Carrito</button>
+</form>
+
+<h2>Carritos creados:</h2>
+<ul id="cartList">
+    {{#each carts}}
+        <li>
+            <h3>Carrito: {{ _id }}</h3>
+            <p>Total:</p>
+            <ul>
+{{#each this.products}}
+    <li data-product-id="{{ this._id }}">
+        Id: {{ this._id }} - Producto: {{ this.title }} - Precio {{ this.price }} - Cantidad: {{ this.quantity }} - Total: 
+        <button onclick="editProduct('{{ ../_id }}', '{{ this._id }}')">Editar</button>
+        <button onclick="deleteProduct('{{ ../_id }}', '{{ this._id }}')">Eliminar</button>
+    </li>
+{{/each}}
+            </ul>
+            <button onclick="deleteCart('{{ _id }}')">Eliminar Carrito</button>
+        </li>
+    {{/each}}
+</ul>
+
+<script>
+    function crearCarrito(event) {
+        event.preventDefault();
+        
+        fetch('/api/carts', {
+            method: 'POST'
+        })
+        .then(response => response.text())
+        .then(data => {
+            alert('¡Carrito creado con éxito!');
+            window.location.reload();
+        })
+        .catch(error => {
+            alert('Error al crear el carrito: ' + error.message);
+        });
+    }
+
+    function editProduct(cid, pid) {
+        console.log('Product ID:', pid);
+
+        const newQuantity = prompt('Ingrese la nueva cantidad:');
+        if (newQuantity) {
+            fetch(`/api/carts/${cid}/products/${pid}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ quantity: newQuantity })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Data received:', data);
+                if (data.updatedProduct) {
+                    const productElement = document.querySelector(`[data-product-id="${pid}"]`);
+                    if (productElement) {
+                        productElement.innerHTML = `
+                          Id: ${pid} - Producto: ${data.updatedProduct.title} - Precio ${data.updatedProduct.price} - Cantidad: ${newQuantity} - Total: 
+                          <button onclick="editProduct('${cid}', '${pid}')">Editar</button>
+                          <button onclick="deleteProduct('${cid}', '${pid}')">Eliminar</button>
+                        `;
+                    } else {
+                        console.log(`Product element with ID ${pid} not found in the DOM`);
+                    }
+                    alert(data.message);
+                } else {
+                    alert('Error al editar el producto: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al editar el producto: ' + error.message);
+            });
+        } else {
+            alert('Por favor ingrese la nueva cantidad.');
+        }
+    }
+
+    function deleteProduct(cid, pid) {
+        const confirmDelete = confirm('¿Estás seguro de que deseas eliminar este producto del carrito?');
+        if (confirmDelete) {
+            fetch(`/api/carts/${cid}/products/${pid}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                window.location.reload();
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    }
+
+    function deleteCart(id) {
+        const confirmDelete = confirm('¿Estás seguro de que deseas eliminar este carrito?');
+        if (confirmDelete) {
+            fetch(`/api/carts/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                window.location.reload();
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await renderCarts();
+    });
+
+    async function renderCarts() {
+        const cartList = document.getElementById('cartList');
+        cartList.innerHTML = '';
+
+        try {
+            const cartsResponse = await fetch('/api/carts');
+            const carts = await cartsResponse.json();
+
+            carts.forEach(cart => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <h3>Carrito: ${cart._id}</h3>
+                    <p>Total:</p>
+                    <ul>
+                        ${cart.products.map(product => `
+                            <li data-product-id="${product._id}">
+                                Id: ${product._id} - Producto: ${product.title} - Precio ${product.price} - Cantidad ${product.quantity} - Total: 
+                                <button onclick="editProduct('${cart._id}', '${product._id}')">Editar</button>
+                                <button onclick="deleteProduct('${cart._id}', '${product._id}')">Eliminar</button>
+                            </li>
+                        `).join('')}
+                    </ul>
+                    <button onclick="deleteCart('${cart._id}')">Eliminar Carrito</button>
+                `;
+                cartList.appendChild(li);
+            });
+        } catch (error) {
+            console.error('Error al renderizar carritos:', error);
+        }
+    }
+</script>
